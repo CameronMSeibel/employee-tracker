@@ -6,6 +6,6 @@
     "mysql2": "^2.3.3"
   },
   "scripts": {
-    "start": "tracker.js"
+    "start": "node tracker.js"
   }
 }
