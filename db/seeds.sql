@@ -1,3 +1,5 @@
+SOURCE schema.sql;
+
 INSERT INTO department(name)
 VALUES ("Executive");
 
