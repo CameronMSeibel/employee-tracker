@@ -8,7 +8,7 @@ const inquirer = require("inquirer");
  */
 async function viewAllEmployees(){
     try{
-        const [rows] = await db.query(`SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name, role.salary,
+        const [rows] = await db.query(`SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name as department, role.salary,
         (SELECT employee.first_name + " " + employee.last_name WHERE employee.id=employee.manager_id) AS manager
         FROM employee
         INNER JOIN role ON employee.role_id=role.id
@@ -22,7 +22,7 @@ async function viewAllEmployees(){
 }
 
 async function addEmployee(){
-    try{
+    try{ 
         const roles = [];
         const employees = [];
         const questions = [
@@ -85,7 +85,20 @@ async function viewAllDepartments(){
 }
 
 async function addDepartment(){
-
+    try{
+        const questions = [
+            {
+                name: "name",
+                message: "What is the name of the department?"
+            }
+        ]
+        const response = await inquirer.prompt(questions);
+        db.query("INSERT INTO department(name) VALUES (?);", response.name);
+        return true;
+    }catch(error){
+        console.error(error);
+        return false;
+    }
 }
 
 function quit(){
