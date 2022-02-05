@@ -8,7 +8,11 @@ const inquirer = require("inquirer");
  */
 async function viewAllEmployees(){
     try{
-        const [rows] = await db.query("SELECT * FROM employee;");
+        const [rows] = await db.query(`SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name, role.salary,
+        (SELECT employee.first_name + " " + employee.last_name WHERE employee.id=employee.manager_id) AS manager
+        FROM employee
+        INNER JOIN role ON employee.role_id=role.id
+        INNER JOIN department ON role.department_id=department.id;`);
         console.table(rows);
         return true;
     }catch(err){
@@ -56,7 +60,7 @@ async function updateEmployeeRole(){
 
 async function viewAllRoles(){
     try{
-        const [rows] = await db.query("SELECT * FROM role;")
+        const [rows] = await db.query("SELECT role.title, role.id, department.name, role.salary FROM role INNER JOIN department ON role.department_id=department.id;")
         console.table(rows);
         return true;
     }catch(err){
