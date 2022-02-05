@@ -55,7 +55,12 @@ async function addEmployee(){
 }
 
 async function updateEmployeeRole(){
-
+    try{
+        const employees = listEmployees();
+    }catch(err){
+        console.error(err);
+        return false;
+    }
 }
 
 async function viewAllRoles(){
@@ -70,7 +75,35 @@ async function viewAllRoles(){
 }
 
 async function addRole(){
-
+    try{
+        const departments = await listDepartments();
+        const questions = [
+            {
+                name: "title",
+                message: "What is the title for this role?"
+            },
+            {
+                name: "salary",
+                message: "What is the salary for this role?"
+            },
+            {
+                type: "list",
+                name: "department",
+                message: "Under which department does this role operate?",
+                choices: [...departments, "Add Department"]
+            }
+        ];
+        let {title, salary, department} = await inquirer.prompt(questions);
+        if(department === "Add Department"){
+            department = await addDepartment();
+        }
+        const [rows] = await db.query("SELECT id FROM department WHERE name=?;", department);
+        db.query("INSERT INTO role(title, salary, department_id) VALUES (?, ?, ?);", [title, salary, rows[0].id]);
+        return true;
+    }catch(err){
+        console.error(err);
+        return false;
+    }
 }
 
 async function viewAllDepartments(){
@@ -94,10 +127,28 @@ async function addDepartment(){
         ]
         const response = await inquirer.prompt(questions);
         db.query("INSERT INTO department(name) VALUES (?);", response.name);
-        return true;
+        return response.name;
     }catch(error){
         console.error(error);
         return false;
+    }
+}
+
+async function listEmployees(){
+    try{
+        const [rows] = await db.query("SELECT () FROM employee;")
+        return rows.map((item) => item.name);
+    }catch(err){
+        console.error(err)
+    }
+}
+
+async function listDepartments(){
+    try{
+        const [rows] = await db.query("SELECT name FROM department;")
+        return rows.map((item) => item.name);
+    }catch(err){
+        console.error(err)
     }
 }
 
