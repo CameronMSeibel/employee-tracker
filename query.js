@@ -4,12 +4,12 @@ const inquirer = require("inquirer");
 
 /**
  * 
- * @returns 
+ * @returns {boolean} whether or not database operation succeeded
  */
 async function viewAllEmployees(){
     try{
         const [rows] = await db.query(`SELECT employee.id, employee.first_name, employee.last_name, role.title, department.name as department, role.salary,
-        (SELECT employee.first_name + " " + employee.last_name WHERE employee.id=employee.manager_id) AS manager
+        (SELECT CONCAT_WS(" ", employee.first_name, employee.last_name) WHERE employee.id=employee.manager_id) AS manager
         FROM employee
         INNER JOIN role ON employee.role_id=role.id
         INNER JOIN department ON role.department_id=department.id;`);
@@ -23,22 +23,22 @@ async function viewAllEmployees(){
 
 async function addEmployee(){
     try{ 
-        const roles = [];
-        const employees = [];
+        const roles = await listRoles();
+        const employees = await listEmployees();
         const questions = [
             {
                 message: "What is the employee's first name?",
-                name: "first_name"
+                name: "firstName"
             },
             {
                 message: "What is the employee's last name?",
-                name: "last_name"
+                name: "lastName"
             },
             {
                 type: "list",
                 message: "What is the employee's role?",
                 name: "role",
-                choices: [...roles]
+                choices: [...roles, "Add Role"]
             },
             {
                 type: "list",
@@ -47,7 +47,22 @@ async function addEmployee(){
                 choices: ["None", ...employees]
             }
         ];
-        const response = await inquirer.prompt(questions);
+        let {firstName, lastName, role, manager} = await inquirer.prompt(questions);
+        if(role === "Add Role"){
+            role = await addRole();
+        }
+        let managerID;
+        if(manager === "None"){
+            managerID = null;
+        }else{
+            const [rows] = await db.query("SELECT id FROM employee WHERE first_name=? AND last_name=?;", manager.split(" "));
+            managerID = rows[0].id;
+        }
+        const [rows] = await db.query("SELECT id FROM role WHERE title=?;", role);
+        const roleID = rows[0].id;
+        await db.query("INSERT INTO employee(first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?);", [firstName, lastName, roleID, managerID]);
+        console.log(`Added ${firstName} ${lastName} to database.`);
+        return true;
     }catch(err){
         console.error(err);
         return false;
@@ -56,7 +71,33 @@ async function addEmployee(){
 
 async function updateEmployeeRole(){
     try{
-        const employees = listEmployees();
+        const employees = await listEmployees();
+        const roles = await listRoles();
+        questions = [
+            {
+                type: "list",
+                name: "employee",
+                message: "Which employee's role do you wish to update?",
+                choices: employees
+            },
+            {
+                type: "list",
+                name: "title",
+                message: "Which role do you wish to assign the selected employee?",
+                choices: [...roles, "Add Role"]
+            }
+        ];
+        let {employee, title} = await inquirer.prompt(questions);
+        if(title === "Add Role"){
+            title = addRole();
+        }
+        let [rows] = await db.query("SELECT id FROM employee WHERE first_name=? AND last_name=?", employee.split(" "));
+        const employeeID = rows[0].id;
+        [rows] = await db.query("SELECT id FROM role WHERE title=?", title);
+        const roleID = rows[0].id;
+        db.query("UPDATE employee SET role_id=? WHERE id=?", [roleID, employeeID]);
+        console.log(`Updated ${employee}'s role to ${title}.`);
+        return true;
     }catch(err){
         console.error(err);
         return false;
@@ -98,8 +139,9 @@ async function addRole(){
             department = await addDepartment();
         }
         const [rows] = await db.query("SELECT id FROM department WHERE name=?;", department);
-        db.query("INSERT INTO role(title, salary, department_id) VALUES (?, ?, ?);", [title, salary, rows[0].id]);
-        return true;
+        await db.query("INSERT INTO role(title, salary, department_id) VALUES (?, ?, ?);", [title, salary, rows[0].id]);
+        console.log(`Added ${title} to the database.`);
+        return title;
     }catch(err){
         console.error(err);
         return false;
@@ -124,10 +166,11 @@ async function addDepartment(){
                 name: "name",
                 message: "What is the name of the department?"
             }
-        ]
-        const response = await inquirer.prompt(questions);
-        db.query("INSERT INTO department(name) VALUES (?);", response.name);
-        return response.name;
+        ];
+        const {name} = await inquirer.prompt(questions);
+        db.query("INSERT INTO department(name) VALUES (?);", name);
+        console.log(`Added ${name} to the database.`);
+        return name;
     }catch(error){
         console.error(error);
         return false;
@@ -136,19 +179,28 @@ async function addDepartment(){
 
 async function listEmployees(){
     try{
-        const [rows] = await db.query("SELECT () FROM employee;")
+        const [rows] = await db.query("SELECT CONCAT_WS(' ', first_name, last_name) AS name FROM employee;");
         return rows.map((item) => item.name);
     }catch(err){
-        console.error(err)
+        console.error(err);
     }
 }
 
 async function listDepartments(){
     try{
-        const [rows] = await db.query("SELECT name FROM department;")
+        const [rows] = await db.query("SELECT name FROM department;");
         return rows.map((item) => item.name);
     }catch(err){
-        console.error(err)
+        console.error(err);
+    }
+}
+
+async function listRoles(){
+    try{
+        const [rows] = await db.query("SELECT title FROM role;");
+        return rows.map((item) => item.title);
+    }catch(err){
+        console.error(err);
     }
 }
 
